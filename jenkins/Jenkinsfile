@@ -22,6 +22,12 @@ pipeline{
                 sh "sudo chmod +x /usr/local/bin/docker-compose"
             }
         }
+        stage("Install components"){
+            steps{
+                sh "sudo apt-get update"
+                sh "sudo apt-get install -y python3-pip python3-venv unzip chromium-browser"
+            }
+        }
         stage("Test"){
             steps{
                 sh "bash jenkins/test.sh"
