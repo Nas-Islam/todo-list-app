@@ -1,6 +1,8 @@
 pipeline{
     agent any
     environment{
+        app_version = 'v1'
+        rollback = 'false'
         VERSION = "1.${BUILD_ID}"
         TEST_DATABASE_URI = "sqlite:///data.db"
         TEST_SECRET_KEY = "test"
@@ -9,6 +11,17 @@ pipeline{
         SECRET_KEY = credentials("SECRET_KEY")
     }
     stages{
+        stage("Install Docker & Docker-Compose"){
+            steps{
+                sh "curl https://get.docker.com | sudo bash"
+                sh "sudo usermod -aG docker jenkins"
+                sh "sudo apt update"
+                sh "sudo apt install -y curl jq"
+                sh "version=\$(curl -s https://api.github.com/repos/docker/compose/releases/latest | jq -r '.tag_name')"
+                sh "sudo curl -L https://github.com/docker/compose/releases/download/1.27.4/docker-compose-\$(uname -s)-\$(uname -m) -o /usr/local/bin/docker-compose"
+                sh "sudo chmod +x /usr/local/bin/docker-compose"
+            }
+        }
         stage("Test"){
             steps{
                 sh "bash jenkins/test.sh"
@@ -19,6 +32,17 @@ pipeline{
                 sh "bash jenkins/build_images.sh"
             }
         }
+        stage('Tag & Push Image'){
+                steps{
+                    script{
+                        if (env.rollback == 'false'){
+                            docker.withRegistry('https://registry.hub.docker.com', 'docker-hub-credentials'){
+                                image.push("${env.app_version}")
+                            }
+                        }
+                    }
+                }
+            }
         stage("Deploy"){
             steps{
                 sh "bash jenkins/deploy_compose.sh"
